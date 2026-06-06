@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HelloHQ/plugin-protocol/sidecar/lifecycle.schema.json",
+  "title": "HelloHQ Sidecar Lifecycle Message",
+  "description": "Tier 1 (Python sidecar) lifecycle messages, carried as newline-delimited JSON over stdin/stdout. Lifecycle messages carry a \"type\" field; RPC messages (envelope.schema.json) do not.",
+  "oneOf": [
+    {
+      "title": "ready",
+      "description": "Sidecar -> host. Sent once the runtime and plugin module are initialised. Must arrive within the startup timeout (default 10s).",
+      "type": "object",
+      "required": ["type", "protocol_version"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "ready" },
+        "protocol_version": { "type": "string", "examples": ["1.0.0"] }
+      }
+    },
+    {
+      "title": "shutdown",
+      "description": "Host -> sidecar. Requests graceful shutdown (flush, exit 0) within the shutdown timeout (default 3s) before SIGKILL.",
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": { "type": { "const": "shutdown" } }
+    },
+    {
+      "title": "ping",
+      "type": "object",
+      "required": ["type", "seq"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "ping" },
+        "seq": { "type": "integer", "minimum": 0 }
+      }
+    },
+    {
+      "title": "pong",
+      "description": "Sidecar -> host, echoing the ping seq.",
+      "type": "object",
+      "required": ["type", "seq"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "pong" },
+        "seq": { "type": "integer", "minimum": 0 }
+      }
+    },
+    {
+      "title": "event",
+      "description": "Sidecar -> host push. Forwarded to the plugin's WebView. Fire-and-forget (no id).",
+      "type": "object",
+      "required": ["type", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "event" },
+        "name": { "type": "string" },
+        "payload": {}
+      }
+    }
+  ]
+}

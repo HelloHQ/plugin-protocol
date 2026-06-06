@@ -1,0 +1,9 @@
+# Generated bindings (regenerate from the WIT / schemas)
+/generated/
+*.bindings.*
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/

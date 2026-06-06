@@ -1,0 +1,142 @@
+// HelloHQ Plugin Protocol — Tier 2 ABI (WebAssembly Interface Types)
+//
+// Canonical source of truth for the host <-> plugin contract used by Rust, Go,
+// and TypeScript plugins. Generate language bindings with wit-bindgen / jco.
+//
+// Version: 1.0.0  (see ../VERSION and ../CHANGELOG.md)
+
+package hellohq:plugin@1.0.0;
+
+/// Shared domain types used by both the host and plugins.
+interface types {
+  /// A portfolio in the user's active workspace.
+  record portfolio-name {
+    id: string,   // Stable opaque identifier. Do not parse or construct.
+    name: string, // Display name chosen by the user.
+  }
+
+  record sheet-summary {
+    portfolio-id: string,
+    sheets: list<sheet>,
+  }
+
+  record sheet {
+    id: string,
+    name: string,
+    category: string, // User-defined tag, e.g. "Equities", "Cash".
+    item-count: u32,
+  }
+
+  record asset-count {
+    portfolio-id: string,
+    by-category: list<category-count>,
+    total: u32,
+  }
+
+  record category-count {
+    category: string,
+    count: u32,
+  }
+
+  /// Pre-aggregated portfolio total. Per-item values are never exposed.
+  record aggregated-summary {
+    portfolio-id: string,
+    currency: string,     // ISO 4217, e.g. "EUR".
+    total-value: f64,
+    as-of-timestamp: u64, // Unix epoch milliseconds.
+  }
+
+  record plugin-metadata {
+    id: string,
+    name: string,
+    version: string,
+    protocol-version: string, // hellohq:plugin version this was built against.
+  }
+
+  variant api-error {
+    permission-denied(string), // The permission ID that was denied.
+    not-found(string),
+    workspace-mismatch,
+    internal(string),
+  }
+
+  variant plugin-error {
+    invalid-input(string),
+    execution-failed(string),
+    unsupported-function(string),
+  }
+
+  enum log-level { debug, info, warn, error }
+}
+
+/// Functions the host provides to plugins (plugin imports).
+interface host {
+  use types.{
+    portfolio-name,
+    sheet-summary,
+    asset-count,
+    aggregated-summary,
+    api-error,
+    log-level,
+  };
+
+  // Logging — always available, no permission required.
+  log: func(level: log-level, message: string);
+
+  // Permission-gated data reads. Each requires the matching manifest permission.
+  read-portfolio-names: func() -> result<list<portfolio-name>, api-error>;
+  read-sheet-structure: func(portfolio-id: string) -> result<sheet-summary, api-error>;
+  read-asset-count: func(portfolio-id: string) -> result<asset-count, api-error>;
+  read-currency-rate: func(from: string, to: string) -> result<f64, api-error>;
+  read-aggregated-values: func(portfolio-id: string) -> result<aggregated-summary, api-error>;
+
+  // User-directed file write (opens the OS save dialog). Verified tier only.
+  write-external-file: func(suggested-filename: string, content: list<u8>) -> result<_, api-error>;
+
+  // Push an event to the plugin's WebView. No-op in declarative/headless modes.
+  emit-event: func(name: string, payload: list<u8>);
+}
+
+/// Functions a plugin must export. The host calls these.
+interface plugin {
+  use types.{ plugin-metadata, plugin-error };
+
+  // Called once immediately after instantiation, before any run().
+  init: func();
+
+  // Main entry point, called once per user invocation.
+  // input/output are JSON-encoded bytes (declarative UI schema for output).
+  run: func(input: list<u8>) -> result<list<u8>, plugin-error>;
+
+  // Static metadata, read at install time and after updates.
+  metadata: func() -> plugin-metadata;
+}
+
+world hellohq-plugin {
+  import host;
+  export plugin;
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// v2 (PLANNED — not part of the stable 1.0.0 surface)
+//
+// The following are documented in docs/plugin and tracked for a 1.x minor bump.
+// They are commented out so 1.0.0 codegen stays stable. Do not rely on them yet.
+//
+//   record chat-message { role: string, content: string }
+//   record inference-opts { max-tokens: u32, temperature: option<f32> }
+//   record inference-response {
+//     content: string, input-tokens: u32, output-tokens: u32, model: string,
+//   }
+//   // in `host` (requires ai:inference permission, Verified tier):
+//   ai-complete: func(messages: list<chat-message>, opts: inference-opts)
+//       -> result<inference-response, api-error>;
+//   // storage (requires plugin:storage):
+//   storage-execute: func(sql: string, params: list<string>)
+//       -> result<list<list<string>>, api-error>;
+//   // network (requires network:fetch, Verified tier):
+//   network-fetch: func(request: list<u8>) -> result<list<u8>, api-error>;
+//   // file import (requires read:external_input):
+//   read-external-file: func(extensions: list<string>)
+//       -> result<tuple<string, list<u8>>, api-error>;
+// ───────────────────────────────────────────────────────────────────────────

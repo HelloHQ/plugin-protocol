@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HelloHQ/plugin-protocol/sidecar/envelope.schema.json",
+  "title": "HelloHQ Sidecar RPC Envelope",
+  "description": "Tier 1 (Python sidecar) RPC messages over newline-delimited JSON. RPC messages carry an \"id\"; lifecycle messages (lifecycle.schema.json) carry a \"type\".",
+  "oneOf": [
+    {
+      "title": "request",
+      "description": "Host -> sidecar. Invoke a plugin function.",
+      "type": "object",
+      "required": ["id", "function"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "integer", "minimum": 0 },
+        "function": { "type": "string" },
+        "args": {
+          "description": "Positional or named arguments; plugin-defined shape.",
+          "type": ["array", "object"]
+        }
+      }
+    },
+    {
+      "title": "success-response",
+      "description": "Sidecar -> host. Carries the same id as the request.",
+      "type": "object",
+      "required": ["id", "result"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "integer", "minimum": 0 },
+        "result": {}
+      }
+    },
+    {
+      "title": "error-response",
+      "description": "Sidecar -> host. Carries the same id as the request.",
+      "type": "object",
+      "required": ["id", "error"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "integer", "minimum": 0 },
+        "error": {
+          "type": "object",
+          "required": ["code", "message"],
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "invalid_input",
+                "execution_failed",
+                "unsupported_function",
+                "timeout"
+              ]
+            },
+            "message": {
+              "type": "string",
+              "description": "Short diagnostic. Never a raw stack trace."
+            }
+          }
+        }
+      }
+    }
+  ]
+}
