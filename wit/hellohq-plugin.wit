@@ -112,7 +112,7 @@ interface host {
   read-portfolio-names: func() -> result<list<portfolio-name>, api-error>;
   read-sheet-structure: func(portfolio-id: string) -> result<sheet-summary, api-error>;
   read-asset-count: func(portfolio-id: string) -> result<asset-count, api-error>;
-  read-currency-rate: func(from: string, to: string) -> result<f64, api-error>;
+  read-currency-rate: func(from-currency: string, to-currency: string) -> result<f64, api-error>;
   read-aggregated-values: func(portfolio-id: string) -> result<aggregated-summary, api-error>;
 
   // AI inference — requires ai:inference permission (v1+).
