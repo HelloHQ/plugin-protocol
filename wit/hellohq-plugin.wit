@@ -15,6 +15,28 @@ interface types {
     name: string, // Display name chosen by the user.
   }
 
+  // ── AI inference types (ai:inference permission, v1+) ─────────────────────
+
+  /// One message in a chat-style prompt.
+  record chat-message {
+    role: string,    // "user" or "assistant"
+    content: string,
+  }
+
+  /// Options that govern inference behaviour.
+  record inference-opts {
+    max-tokens: u32,
+    temperature: option<f32>, // None = model default
+  }
+
+  /// Successful response from an AI inference call.
+  record inference-response {
+    content: string,
+    input-tokens: u32,
+    output-tokens: u32,
+    model: string,
+  }
+
   record sheet-summary {
     portfolio-id: string,
     sheets: list<sheet>,
@@ -76,6 +98,9 @@ interface host {
     sheet-summary,
     asset-count,
     aggregated-summary,
+    chat-message,
+    inference-opts,
+    inference-response,
     api-error,
     log-level,
   };
@@ -89,6 +114,13 @@ interface host {
   read-asset-count: func(portfolio-id: string) -> result<asset-count, api-error>;
   read-currency-rate: func(from: string, to: string) -> result<f64, api-error>;
   read-aggregated-values: func(portfolio-id: string) -> result<aggregated-summary, api-error>;
+
+  // AI inference — requires ai:inference permission (v1+, Verified tier for Tier-2).
+  // Tier-2 (Wasm) plugins call this via the hq_read JSON protocol; the WIT
+  // type is the canonical interface definition for code generation.
+  // Tier-1 (Python) plugins use the NDJSON pipe protocol in host.ai_complete().
+  ai-complete: func(messages: list<chat-message>, opts: inference-opts)
+      -> result<inference-response, api-error>;
 
   // User-directed file write (opens the OS save dialog). Verified tier only.
   write-external-file: func(suggested-filename: string, content: list<u8>) -> result<_, api-error>;
@@ -123,18 +155,14 @@ world hellohq-plugin {
 // The following are documented in docs/plugin and tracked for a 1.x minor bump.
 // They are commented out so 1.0.0 codegen stays stable. Do not rely on them yet.
 //
-//   record chat-message { role: string, content: string }
-//   record inference-opts { max-tokens: u32, temperature: option<f32> }
-//   record inference-response {
-//     content: string, input-tokens: u32, output-tokens: u32, model: string,
-//   }
-//   // in `host` (requires ai:inference permission, Verified tier):
-//   ai-complete: func(messages: list<chat-message>, opts: inference-opts)
-//       -> result<inference-response, api-error>;
-//   // storage (requires plugin:storage):
+// Note: ai:inference (chat-message, inference-opts, inference-response,
+// ai-complete) is already active above — implemented in v1 via the hq_read
+// JSON protocol for Tier-2 and the NDJSON pipe for Tier-1.
+//
+//   // storage (requires plugin:storage, Tier-1 only in v1):
 //   storage-execute: func(sql: string, params: list<string>)
 //       -> result<list<list<string>>, api-error>;
-//   // network (requires network:fetch, Verified tier):
+//   // network (requires network:fetch, Verified tier, Tier-1 only in v1):
 //   network-fetch: func(request: list<u8>) -> result<list<u8>, api-error>;
 //   // file import (requires read:external_input):
 //   read-external-file: func(extensions: list<string>)
