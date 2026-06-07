@@ -1,0 +1,53 @@
+name: Protocol CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    name: Validate protocol artifacts
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # ── JSON Schema validation ──────────────────────────────────────────────
+      - name: Validate JSON schemas (well-formed)
+        run: |
+          for f in sidecar/*.json; do
+            python3 -m json.tool "$f" > /dev/null
+            echo "✅ well-formed: $f"
+          done
+
+      - name: Validate JSON schemas (draft 2020-12 meta-schema)
+        run: |
+          pip install --quiet check-jsonschema
+          check-jsonschema --check-metaschema sidecar/*.json
+          echo "✅ all schemas valid against JSON Schema draft 2020-12"
+
+      # ── WIT syntax validation ───────────────────────────────────────────────
+      - name: Install wasm-tools
+        run: |
+          TAG=$(curl -sf https://api.github.com/repos/bytecodealliance/wasm-tools/releases/latest \
+                | python3 -c "import sys,json; print(json.load(sys.stdin)['tag_name'])")
+          curl -sSfL \
+            "https://github.com/bytecodealliance/wasm-tools/releases/download/${TAG}/wasm-tools-${TAG}-x86_64-linux.tar.gz" \
+            | tar -xzf - --strip-components=1 -C "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          wasm-tools --version
+
+      - name: Validate WIT syntax
+        run: |
+          wasm-tools component wit wit/ > /dev/null
+          echo "✅ WIT parses cleanly"
+
+      # ── Version / changelog consistency ────────────────────────────────────
+      - name: VERSION referenced in CHANGELOG
+        run: |
+          VERSION=$(cat VERSION)
+          grep -qF "$VERSION" CHANGELOG.md \
+            || { echo "❌ VERSION $VERSION not found in CHANGELOG.md"; exit 1; }
+          echo "✅ VERSION $VERSION found in CHANGELOG.md"
