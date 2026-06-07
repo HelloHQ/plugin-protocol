@@ -31,10 +31,13 @@ jobs:
       # ── WIT syntax validation ───────────────────────────────────────────────
       - name: Install wasm-tools
         run: |
+          # Tag is e.g. "v1.251.0"; asset filename drops the "v" prefix.
           TAG=$(curl -sf https://api.github.com/repos/bytecodealliance/wasm-tools/releases/latest \
                 | python3 -c "import sys,json; print(json.load(sys.stdin)['tag_name'])")
+          VER="${TAG#v}"
+          mkdir -p "$HOME/.local/bin"
           curl -sSfL \
-            "https://github.com/bytecodealliance/wasm-tools/releases/download/${TAG}/wasm-tools-${TAG}-x86_64-linux.tar.gz" \
+            "https://github.com/bytecodealliance/wasm-tools/releases/download/${TAG}/wasm-tools-${VER}-x86_64-linux.tar.gz" \
             | tar -xzf - --strip-components=1 -C "$HOME/.local/bin"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           wasm-tools --version
