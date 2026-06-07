@@ -115,10 +115,15 @@ interface host {
   read-currency-rate: func(from: string, to: string) -> result<f64, api-error>;
   read-aggregated-values: func(portfolio-id: string) -> result<aggregated-summary, api-error>;
 
-  // AI inference — requires ai:inference permission (v1+, Verified tier for Tier-2).
-  // Tier-2 (Wasm) plugins call this via the hq_read JSON protocol; the WIT
-  // type is the canonical interface definition for code generation.
-  // Tier-1 (Python) plugins use the NDJSON pipe protocol in host.ai_complete().
+  // AI inference — requires ai:inference permission (v1+).
+  // Tier-1 (Python sidecar) is the supported path: see host.ai_complete(),
+  // which uses the NDJSON pipe's stop-the-world RPC so the host can perform
+  // async inference while the sidecar blocks in its own process.
+  // Tier-2 (Wasm) cannot honour this in v1: Wasmtime host callbacks are
+  // synchronous and cannot await async inference. The host registers the
+  // import only as a stub returning an "unavailable" sentinel (see
+  // PluginHostBridge.aiCompleteStub). This signature is the canonical type
+  // for code generation; a working Tier-2 path awaits a future async-host bump.
   ai-complete: func(messages: list<chat-message>, opts: inference-opts)
       -> result<inference-response, api-error>;
 
