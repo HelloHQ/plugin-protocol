@@ -9,6 +9,7 @@ artifacts in this repository.
 | [`wit/hellohq-plugin.wit`](wit/hellohq-plugin.wit) | Tier 2 (Rust/Go/TS Wasm) | `wit-bindgen` / `jco`, the host FFI layer |
 | [`sidecar/lifecycle.schema.json`](sidecar/lifecycle.schema.json) | Tier 1 (Python sidecar) | host sidecar driver, Python SDK |
 | [`sidecar/envelope.schema.json`](sidecar/envelope.schema.json) | Tier 1 (Python sidecar) | host sidecar driver, Python SDK |
+| [`sidecar/host-calls.schema.json`](sidecar/host-calls.schema.json) | Tier 1 (Python sidecar) | host sidecar driver, Python SDK |
 
 ## Versioning
 

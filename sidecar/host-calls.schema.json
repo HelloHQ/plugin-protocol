@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HelloHQ/plugin-protocol/sidecar/host-calls.schema.json",
+  "title": "HelloHQ Sidecar Host-Call Message",
+  "description": "Tier 1 (Python sidecar) synchronous host calls, carried as newline-delimited JSON over stdin/stdout. Issued by the plugin mid-dispatch: the plugin writes a request to stdout and blocks on a single stdin readline for the matching response (a 'stop-the-world' RPC the single-threaded sidecar loop makes safe). Each message carries a \"type\" and a \"seq\"; a response echoes the request's \"seq\". These back the ai:inference, plugin:storage, and network:fetch permissions. Lifecycle messages live in lifecycle.schema.json; the top-level dispatch RPC lives in envelope.schema.json.",
+  "oneOf": [
+    {
+      "title": "ai_complete",
+      "description": "Plugin -> host. Run an AI completion. Requires ai:inference.",
+      "type": "object",
+      "required": ["type", "seq", "messages", "opts"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "ai_complete" },
+        "seq": { "type": "integer", "minimum": 0 },
+        "messages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["role", "content"],
+            "properties": {
+              "role": { "type": "string", "enum": ["user", "assistant", "system"] },
+              "content": { "type": "string" }
+            }
+          }
+        },
+        "opts": {
+          "type": "object",
+          "required": ["max_tokens"],
+          "properties": {
+            "max_tokens": { "type": "integer", "minimum": 1 },
+            "temperature": { "type": "number", "minimum": 0 }
+          }
+        },
+        "tools": {
+          "type": "array",
+          "description": "Optional tool/function-calling definitions.",
+          "items": { "type": "object" }
+        }
+      }
+    },
+    {
+      "title": "ai_response",
+      "description": "Host -> plugin. Either a completion result or an error.",
+      "type": "object",
+      "required": ["type", "seq"],
+      "properties": {
+        "type": { "const": "ai_response" },
+        "seq": { "type": "integer", "minimum": 0 },
+        "content": { "type": "string" },
+        "usage": {
+          "type": "object",
+          "properties": {
+            "input_tokens": { "type": "integer", "minimum": 0 },
+            "output_tokens": { "type": "integer", "minimum": 0 },
+            "model": { "type": "string" }
+          }
+        },
+        "tool_use": {
+          "type": "object",
+          "description": "Present when the model invoked a tool instead of returning text."
+        },
+        "error": { "type": "string" },
+        "error_code": { "type": "string" }
+      }
+    },
+    {
+      "title": "storage_get",
+      "description": "Plugin -> host. Read a key. Requires plugin:storage.",
+      "type": "object",
+      "required": ["type", "seq", "key"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "storage_get" },
+        "seq": { "type": "integer", "minimum": 0 },
+        "key": { "type": "string" }
+      }
+    },
+    {
+      "title": "storage_set",
+      "description": "Plugin -> host. Write a string value. Requires plugin:storage.",
+      "type": "object",
+      "required": ["type", "seq", "key", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "storage_set" },
+        "seq": { "type": "integer", "minimum": 0 },
+        "key": { "type": "string" },
+        "value": { "type": "string" }
+      }
+    },
+    {
+      "title": "storage_delete",
+      "description": "Plugin -> host. Delete a key. Requires plugin:storage.",
+      "type": "object",
+      "required": ["type", "seq", "key"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "storage_delete" },
+        "seq": { "type": "integer", "minimum": 0 },
+        "key": { "type": "string" }
+      }
+    },
+    {
+      "title": "storage_response",
+      "description": "Host -> plugin. Reply to storage_get (value | null), storage_set (ok), storage_delete (deleted), or an error.",
+      "type": "object",
+      "required": ["type", "seq"],
+      "properties": {
+        "type": { "const": "storage_response" },
+        "seq": { "type": "integer", "minimum": 0 },
+        "value": { "type": ["string", "null"] },
+        "ok": { "type": "boolean" },
+        "deleted": { "type": "integer", "minimum": 0 },
+        "error": { "type": "string" },
+        "error_code": { "type": "string" }
+      }
+    },
+    {
+      "title": "http_request",
+      "description": "Plugin -> host. Outbound HTTP via the host. Requires network:fetch (Verified). The host enforces the manifest's network.allowed_origins and HTTPS-only.",
+      "type": "object",
+      "required": ["type", "seq", "method", "url"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "http_request" },
+        "seq": { "type": "integer", "minimum": 0 },
+        "method": { "type": "string" },
+        "url": { "type": "string", "format": "uri" },
+        "headers": { "type": "object", "additionalProperties": { "type": "string" } },
+        "body": { "type": "string" }
+      }
+    },
+    {
+      "title": "http_response",
+      "description": "Host -> plugin. HTTP result or an error.",
+      "type": "object",
+      "required": ["type", "seq"],
+      "properties": {
+        "type": { "const": "http_response" },
+        "seq": { "type": "integer", "minimum": 0 },
+        "status": { "type": "integer" },
+        "headers": { "type": "object", "additionalProperties": { "type": "string" } },
+        "body": { "type": "string" },
+        "error": { "type": "string" },
+        "error_code": { "type": "string" }
+      }
+    }
+  ]
+}
