@@ -6,7 +6,7 @@ artifacts in this repository.
 
 | Artifact | Tier | Consumed by |
 |---|---|---|
-| [`wit/hellohq-plugin.wit`](wit/hellohq-plugin.wit) | Tier 2 (Rust/Go/TS Wasm) | `wit-bindgen` / `jco`, the host FFI layer |
+| [`wit/hellohq-plugin.wit`](wit/hellohq-plugin.wit) | Tier 2 (Rust/Go/TS Wasm) — **Component Model + WASI 0.3** | `wit-bindgen` / `jco` / `cargo-component`, the host FFI layer |
 | [`sidecar/lifecycle.schema.json`](sidecar/lifecycle.schema.json) | Tier 1 (Python sidecar) | host sidecar driver, Python SDK |
 | [`sidecar/envelope.schema.json`](sidecar/envelope.schema.json) | Tier 1 (Python sidecar) | host sidecar driver, Python SDK |
 | [`sidecar/host-calls.schema.json`](sidecar/host-calls.schema.json) | Tier 1 (Python sidecar) | host sidecar driver, Python SDK |
@@ -14,7 +14,10 @@ artifacts in this repository.
 ## Versioning
 
 The protocol is versioned with semver — see [`VERSION`](VERSION) and
-[`CHANGELOG.md`](CHANGELOG.md). Current: **1.0.0**.
+[`CHANGELOG.md`](CHANGELOG.md). Current: **0.1.0** — pre-stable: the Tier-2 ABI
+was reset to the Component Model + WASI 0.3 contract (the prior 1.0.0 was a
+pre-launch draft with no consumers, superseded in place). Returns to 1.0.0 at
+stabilization.
 
 - New host function or optional field → **minor**
 - New required field or removed function → **major**

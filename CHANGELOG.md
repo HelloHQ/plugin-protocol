@@ -6,21 +6,33 @@ protocol adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-### Planned (v2 — minor bump, no breaking changes)
-- **Tier-2 (Wasm) `ai:inference`**: a working `host.ai-complete`. The WIT
-  signature ships in 1.0.0, but the Tier-2 path is currently a stub —
-  synchronous Wasmtime host callbacks cannot await inference — so only the
-  Tier-1 sidecar path works today.
-- `host.storage-execute` (SQL form, requires `plugin:storage`): the Tier-2 WIT
-  surface for storage. Tier-1 already has key-value storage (see 1.0.0 below).
-- `host.network-fetch` (byte form, requires `network:fetch`): the Tier-2 WIT
-  surface for network. Tier-1 already has HTTP fetch (see 1.0.0 below).
-- `host.read-external-file` (requires `read:external_input`).
+(nothing yet)
 
-The Tier-2 WIT forms above are sketched, commented-out, at the foot of
-`wit/hellohq-plugin.wit` and must not be relied upon until released.
+## [0.1.0] — 2026-06-16 — Component Model rewrite (pre-stable reset)
 
-## [1.0.0] — 2026-06-06
+The Tier-2 ABI is **reset to pre-stable** and rewritten as the real WebAssembly
+**Component Model + WASI 0.3** contract the async runtime (`hellohq-wasm-runtime`)
+implements and verifies end-to-end on both the Cranelift and the no-JIT iOS
+Pulley backends. The previous `1.0.0` entry (below) was a **pre-launch draft with
+no consumers** — single `host` interface, a JSON-over-`hq_read` byte protocol, an
+`ai-complete` stub — and is **superseded in place** (no users to migrate, so no
+dual-version/dual-load machinery). The protocol returns to `1.0.0` when it
+stabilizes.
+
+### The contract (vs the superseded 1.0.0 draft)
+- One `host` grab-bag → **focused, independently-gated interfaces**:
+  `workspace`, `storage`, `events`, `log`, `inference`. Exports interface
+  `plugin` → `guest` (same `init`/`run`/`metadata`).
+- `inference.complete` **streams** token deltas (`-> result<stream<string>,
+  api-error>`); the synchronous `ai-complete` stub is gone (streaming works on
+  Wasmtime 45 / component-model-async).
+- `storage` is a **real key-value capability** (was "planned").
+- `events`: `emit-event(name, payload)` → `events.emit(plugin-event)`.
+- Outbound HTTP is the **standard `wasi:http`** (host-gated: origin allowlist +
+  H4/H5 SSRF), replacing the bespoke `network:fetch`.
+- `world hellohq-plugin@0.1.0`.
+
+## [1.0.0] — 2026-06-06 — SUPERSEDED (pre-launch draft, never consumed)
 
 ### Added
 - Initial stable protocol.
