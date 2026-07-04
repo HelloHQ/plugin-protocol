@@ -19,6 +19,14 @@
 // The gate stays app-side: the host implements + permission-checks every import
 // (an interface absent from the world, or denied, is unreachable). `wasi:sockets`
 // and `wasi:filesystem` are deliberately NEVER imported — denial is structural.
+//
+// SA3 (doc 59) caveat — scope of "structural": this guarantee holds for THIS
+// canonical world and the Rust no_std guest. Guest toolchains that pull the WASI
+// aggregate (Go/TinyGo, see sdks/go/wit/component.wit) can have wasi:cli in
+// their import list; for those the sockets/filesystem denial is HOST-ENFORCED
+// (the runtime must trap those imports), and CI gates every built component so
+// none reaches wasi:sockets/wasi:filesystem. Never rely on the guest simply
+// "not calling" them.
 
 package hellohq:plugin@0.1.0;
 
