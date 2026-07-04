@@ -22,11 +22,14 @@
 //
 // SA3 (doc 59) caveat — scope of "structural": this guarantee holds for THIS
 // canonical world and the Rust no_std guest. Guest toolchains that pull the WASI
-// aggregate (Go/TinyGo, see sdks/go/wit/component.wit) can have wasi:cli in
-// their import list; for those the sockets/filesystem denial is HOST-ENFORCED
-// (the runtime must trap those imports), and CI gates every built component so
-// none reaches wasi:sockets/wasi:filesystem. Never rely on the guest simply
-// "not calling" them.
+// aggregate (Go/TinyGo, see sdks/go/wit/component.wit) carry wasi:cli and
+// wasi:filesystem in their import list unavoidably (TinyGo needs fd-based
+// stdio). For those:
+//   - wasi:sockets is CI-gated to ABSENCE (a plugin never gets ambient network;
+//     all network flows through the host bridge) — a hard build failure.
+//   - wasi:filesystem may appear, but denial is HOST-ENFORCED: the runtime
+//     grants ZERO preopens (get-directories returns nothing) so there is no
+//     ambient FS. Never rely on the guest simply "not calling" it.
 
 package hellohq:plugin@0.1.0;
 
