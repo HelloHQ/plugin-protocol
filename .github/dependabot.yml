@@ -1,0 +1,24 @@
+version: 2
+
+# Dependabot VERSION updates. Security updates are a separate, repo-level
+# setting (`automated-security-fixes`) and are already on — this file does not
+# control them and cannot turn them off.
+#
+# Added 2026-08-09 when Renovate was removed org-wide.
+#
+# github-actions is the only ecosystem, and that is correct rather than
+# incomplete: plugin-protocol carries the wire contract — schemas and docs — and
+# has no go.mod, Cargo.toml, package.json, pubspec or Dockerfile to watch. Its
+# two workflows are the only thing with pinned versions.
+
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: ["deps"]
+    groups:
+      actions-minor-and-patch:
+        update-types: ["minor", "patch"]
