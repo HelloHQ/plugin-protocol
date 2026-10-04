@@ -118,33 +118,66 @@
     },
     {
       "title": "http_request",
-      "description": "Plugin -> host. Outbound HTTP via the host. Requires network:fetch (Verified). The host enforces the manifest's network.allowed_origins and HTTPS-only.",
+      "description": "Plugin -> host. Outbound HTTP via the host. Requires network:fetch (Verified). The host enforces HTTPS-only, an SSRF guard (no loopback, private or link-local addresses) and the origin allowlist the manifest declares on the network:fetch permission itself: permissions[{\"id\": \"network:fetch\"}].scope.origins (bare hostnames or a single-label wildcard; there is no top-level network block). Redirects are not followed. The request body is capped at 8 MiB (error_code request_too_large), and a non-empty body on GET or HEAD is refused (error_code bad_request).",
       "type": "object",
       "required": ["type", "seq", "method", "url"],
       "additionalProperties": false,
       "properties": {
         "type": { "const": "http_request" },
         "seq": { "type": "integer", "minimum": 0 },
-        "method": { "type": "string" },
+        "method": { "type": "string", "description": "HTTP method, case-insensitive (the host upper-cases it)." },
         "url": { "type": "string", "format": "uri" },
-        "headers": { "type": "object", "additionalProperties": { "type": "string" } },
-        "body": { "type": "string" }
+        "headers": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Request headers. The host forwards only an allowlist, matched case-insensitively: Accept, Accept-Language, Content-Type, If-None-Match, If-Modified-Since. Every other header is silently dropped, not rejected. That explicitly includes Authorization, Proxy-Authorization, Cookie, Host, User-Agent, vendor API-key and signature headers (X-API-Key, API-Key, API-Sign, CB-ACCESS-*, OK-ACCESS-*, X-MBX-APIKEY) and any name containing auth, key, secret, sign, token, passphrase, password, session, cookie or cert. Credentials are host-only: a plugin never supplies them. The host logs a per-origin count of dropped headers, never their names or values.",
+          "examples": [{ "Accept": "application/json", "If-None-Match": "\"v1\"" }]
+        },
+        "body": {
+          "type": "string",
+          "description": "Request body as text; the host sends its UTF-8 bytes. There is no binary request-body encoding on this transport. Omit it or send \"\" for a bodyless request (an empty body is treated as no body)."
+        }
       }
     },
     {
       "title": "http_response",
-      "description": "Host -> plugin. HTTP result or an error.",
+      "description": "Host -> plugin. Either an upstream HTTP result (status, headers, body, plus body_encoding when the body is not UTF-8 text) or an error (error, error_code). Any upstream status, including 4xx/5xx and an unfollowed 3xx, is a result, not an error.",
       "type": "object",
       "required": ["type", "seq"],
       "properties": {
         "type": { "const": "http_response" },
         "seq": { "type": "integer", "minimum": 0 },
-        "status": { "type": "integer" },
-        "headers": { "type": "object", "additionalProperties": { "type": "string" } },
-        "body": { "type": "string" },
-        "error": { "type": "string" },
-        "error_code": { "type": "string" }
-      }
+        "status": { "type": "integer", "description": "Upstream HTTP status code." },
+        "headers": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Upstream response headers. Set-Cookie and Set-Cookie2 are always stripped; there is no cookie jar."
+        },
+        "body": {
+          "type": "string",
+          "description": "Upstream response body, capped at 8 MiB (over the cap is error_code too_large). When body_encoding is absent or \"utf8\", this is the body itself: the bytes were valid UTF-8. When body_encoding is \"base64\", this is the standard padded base64 (RFC 4648 section 4) of the exact response bytes, which were not valid UTF-8 (a PDF, an image, Latin-1 text); decode it to recover them byte-exact."
+        },
+        "body_encoding": {
+          "type": "string",
+          "enum": ["utf8", "base64"],
+          "default": "utf8",
+          "description": "How body is encoded. Absent means \"utf8\": the host omits the field for text bodies, so the wire is unchanged for plugins written before the field existed, and sends \"base64\" only for a body that is not valid UTF-8. Readers must treat an absent field as \"utf8\", must decode \"base64\", and should fail clearly on any other value rather than guess."
+        },
+        "error": {
+          "type": "string",
+          "description": "Human-readable failure text. It never contains the request URL, path, query, headers or a resolved IP address; at most the origin host (for example \"Request timed out\", \"Request failed (HandshakeException)\", \"Origin \\\"api.example.com\\\" is not in the plugin's declared allowed origins\"). Do not parse it: branch on error_code."
+        },
+        "error_code": {
+          "type": "string",
+          "description": "Stable machine-readable failure code.",
+          "examples": ["permission_denied", "bad_request", "origin_blocked", "address_blocked", "request_too_large", "too_large", "timeout", "request_failed", "host_error"]
+        }
+      },
+      "examples": [
+        { "type": "http_response", "seq": 3, "status": 200, "headers": { "content-type": "application/json" }, "body": "{\"ok\":true}" },
+        { "type": "http_response", "seq": 4, "status": 200, "headers": { "content-type": "application/pdf" }, "body": "JVBERi0xLjcK/w==", "body_encoding": "base64" },
+        { "type": "http_response", "seq": 5, "error": "Request timed out", "error_code": "timeout" }
+      ]
     }
   ]
 }

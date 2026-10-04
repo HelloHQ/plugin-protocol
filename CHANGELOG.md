@@ -6,7 +6,36 @@ protocol adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-(nothing yet)
+Additive only: no message gains a required field, and an existing plugin sees
+the same wire for text responses. Ships in the next minor version.
+
+### Added
+- `http_response.body_encoding` (`"utf8"` | `"base64"`, absent means
+  `"utf8"`) in `sidecar/host-calls.schema.json`. The host sends a response
+  body that is not valid UTF-8 as base64 with `"body_encoding": "base64"`, so
+  binary responses (PDFs, images) arrive byte-exact. Text bodies are unchanged
+  and carry no `body_encoding`. The Tier-2 host-call `http_request` reply uses
+  the same field in its `data` object.
+
+### Documented
+- The host's request-header allowlist for `network:fetch`: only `Accept`,
+  `Accept-Language`, `Content-Type`, `If-None-Match` and `If-Modified-Since`
+  are forwarded; every other header (credentials, cookies, `User-Agent`,
+  vendor key/signature headers) is dropped, not rejected. `Set-Cookie` is
+  stripped from responses.
+- Error text returned to a plugin never contains the request URL, path,
+  query, headers or a resolved IP address.
+- The 8 MiB request and response caps, and that a body on GET/HEAD is refused.
+- Outbound HTTP policy summary in the README, covering the sidecar host call,
+  the Tier-2 host call and `wasi:http`.
+
+### Fixed
+- `http_request` pointed at a manifest `network.allowed_origins` field that
+  does not exist. The allowlist is the `network:fetch` permission's own
+  `scope.origins`.
+- The `ready` message's `protocol_version` example said `1.0.0`; the protocol
+  is `0.1.0`.
+- The README pointed at a protocol reference path that no longer exists.
 
 ## [0.1.0] — 2026-06-16 — Component Model rewrite (pre-stable reset)
 
