@@ -6,10 +6,33 @@ protocol adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-Additive only: no message gains a required field, and an existing plugin sees
-the same wire for text responses. Ships in the next minor version.
+Additive only: no existing message gains a required field, and an existing
+plugin sees the same wire. `VERSION` is bumped when the minor is released, not
+per change. Ships in the next minor version (a new host function is a minor).
 
 ### Added
+- `propose` / `propose_response` in `sidecar/host-calls.schema.json`: the
+  propose-only write call of docs/plugin/30 (Tier 1). A Verified plugin that
+  holds `propose:holdings` and/or `propose:valuations` sends
+  `{"type":"propose","seq":N,"batch":{"schema":"hellohq.proposal-batch@1",
+  "proposals":[…]}}` and reads
+  `{"type":"propose_response","seq":N,"receipts":[{"index":0,"outcome":"queued"}]}`.
+  Outcomes: `queued`, `duplicate`, `superseded_older`, `unchanged`,
+  `suppressed`, `invalid` (with a closed `reason` code). A receipt never
+  carries an item id, a current value or an approval decision; nothing is
+  written until the person approves in the host UI. The host stamps
+  `plugin_id`, `plugin_version`, `content_hash`, `trust_tier`, `run_id`,
+  `received_at` and `host_observed_origins`; a batch that supplies any of
+  them is refused whole (`bad_request` / `host_field_supplied`). Whole-call
+  errors use the existing `error` / `error_code` pair with a fixed `error`
+  text per code (`permission_denied`, `bad_request`, `too_many`, `too_large`,
+  `workspace_unavailable`, `host_error`; `rate_limit_exceeded` and
+  `quota_exceeded` are reserved for the persisted limiter and not emitted
+  yet). The Tier-2 generic host-call runner carries the same shape as method
+  `propose` (`{"method":"propose","batch":{…}}` ->
+  `{"ok":true,"data":{"receipts":[…]}}` or `{"ok":false,"error":"<code>"}`);
+  a Tier-2 plugin that does not qualify still gets `unknown_method:propose`.
+  New host function: a minor bump at release time (see Versioning).
 - `http_response.body_encoding` (`"utf8"` | `"base64"`, absent means
   `"utf8"`) in `sidecar/host-calls.schema.json`. The host sends a response
   body that is not valid UTF-8 as base64 with `"body_encoding": "base64"`, so

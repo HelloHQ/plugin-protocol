@@ -178,6 +178,200 @@
         { "type": "http_response", "seq": 4, "status": 200, "headers": { "content-type": "application/pdf" }, "body": "JVBERi0xLjcK/w==", "body_encoding": "base64" },
         { "type": "http_response", "seq": 5, "error": "Request timed out", "error_code": "timeout" }
       ]
+    },
+    {
+      "title": "propose",
+      "description": "Plugin -> host. Suggest holdings and values for the person to review (docs/plugin/30 section 3). Requires propose:holdings and/or propose:valuations (Verified only, scoped to asset kinds); a plugin that does not hold one gets a permission_denied error. Nothing is written until the person approves each suggestion in the host UI. The plugin proposes against its own source key and never learns an item id, a current value, or an approval decision. The host stamps plugin_id, plugin_version, content_hash, trust_tier, run_id, received_at and host_observed_origins; a batch that carries any host-owned field is refused whole. At most 200 proposals (50 of kind holding) and 256 KiB per call.",
+      "type": "object",
+      "required": ["type", "seq", "batch"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "propose" },
+        "seq": { "type": "integer", "minimum": 0 },
+        "batch": {
+          "type": "object",
+          "required": ["schema", "proposals"],
+          "additionalProperties": false,
+          "properties": {
+            "schema": { "const": "hellohq.proposal-batch@1" },
+            "proposals": {
+              "type": "array",
+              "maxItems": 200,
+              "items": { "$ref": "#/$defs/proposal" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "title": "propose_response",
+      "description": "Host -> plugin. One receipt per submitted proposal, in order, or a whole-call error. A receipt carries only its index, an outcome and (for invalid) a reason code; it never carries an item id, a current value, a dedup key or an approval decision, and no plugin-supplied text is ever echoed. Error text is fixed per error_code.",
+      "type": "object",
+      "required": ["type", "seq"],
+      "properties": {
+        "type": { "const": "propose_response" },
+        "seq": { "type": "integer", "minimum": 0 },
+        "receipts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["index", "outcome"],
+            "additionalProperties": false,
+            "properties": {
+              "index": { "type": "integer", "minimum": 0 },
+              "outcome": {
+                "type": "string",
+                "enum": ["queued", "duplicate", "superseded_older", "unchanged", "suppressed", "invalid"],
+                "description": "queued: new pending suggestion. duplicate: the same suggestion is already pending. superseded_older: queued, and an older pending suggestion for the same key was superseded. unchanged: equal to the latest value the person already approved. suppressed: the person already declined this exact suggestion, or muted the key. invalid: failed validation; see reason."
+              },
+              "reason": { "$ref": "#/$defs/reason", "description": "Present only when outcome is invalid." }
+            }
+          }
+        },
+        "error": { "type": "string", "description": "Fixed text per error_code; never contains plugin-supplied text." },
+        "error_code": {
+          "type": "string",
+          "enum": [
+            "permission_denied",
+            "bad_request",
+            "too_many",
+            "too_large",
+            "rate_limit_exceeded",
+            "quota_exceeded",
+            "workspace_unavailable",
+            "host_error"
+          ],
+          "description": "rate_limit_exceeded and quota_exceeded are reserved for the persisted limiter (docs/plugin/30 section 3.8) and are not emitted yet. workspace_unavailable: no workspace is open, or not the one the run started in."
+        },
+        "reason": {
+          "$ref": "#/$defs/reason",
+          "description": "With bad_request, why the batch was refused."
+        }
+      }
     }
-  ]
+  ],
+  "$defs": {
+    "decimal": {
+      "type": "string",
+      "maxLength": 100,
+      "pattern": "^(0|[1-9][0-9]*)(\\.[0-9]+)?$",
+      "description": "A canonical-form non-negative decimal string: digits and at most one point, no sign, exponent, leading zeros, or bare '.5' / '5.'. At most 38 significant digits and scale 18 (trailing fractional zeros are not counted). Never a JSON number."
+    },
+    "rfc3339_utc": {
+      "type": "string",
+      "maxLength": 40,
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?Z$",
+      "description": "RFC 3339 in UTC with an upper-case Z and no offset."
+    },
+    "host": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 253,
+      "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$"
+    },
+    "proposal": {
+      "title": "proposal",
+      "description": "One suggested holding or valuation. A holding may carry asset_kind, display_name and instrument; a valuation may not (null is tolerated).",
+      "type": "object",
+      "required": ["kind", "source_key", "as_of", "source"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "type": "string", "enum": ["holding", "valuation"] },
+        "source_key": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9:._/-]{1,256}$",
+          "description": "Stable key in the plugin's own world (a wallet address, an exchange asset code, a property reference). The host maps it to an item through a binding the person confirms once."
+        },
+        "asset_kind": {
+          "type": ["string", "null"],
+          "enum": ["stock_ticker", "crypto_ticker", "crypto_exchange", "home", "car", "precious_metal", "domain", "loan_mortgage", null],
+          "description": "Holding only; required for a holding and must be in the permission's scope.kinds."
+        },
+        "display_name": {
+          "type": ["string", "null"],
+          "maxLength": 80,
+          "description": "Holding only; required for a holding. Plain text, no URLs, no control characters, no leading or trailing space."
+        },
+        "instrument": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "properties": {
+            "symbol": { "type": ["string", "null"], "pattern": "^[A-Za-z0-9:._/-]{1,32}$" },
+            "chain": { "type": ["string", "null"], "pattern": "^[a-z0-9._-]{1,32}$" },
+            "figi": { "type": ["string", "null"], "pattern": "^[A-Z0-9]{12}$" }
+          }
+        },
+        "quantity": {
+          "type": ["object", "null"],
+          "required": ["amount", "unit"],
+          "additionalProperties": false,
+          "properties": {
+            "amount": { "$ref": "#/$defs/decimal" },
+            "unit": { "type": "string", "pattern": "^[A-Za-z0-9._-]{1,16}$" }
+          }
+        },
+        "value": {
+          "type": ["object", "null"],
+          "required": ["amount", "currency"],
+          "additionalProperties": false,
+          "description": "Required for a valuation, optional for a holding.",
+          "properties": {
+            "amount": { "$ref": "#/$defs/decimal" },
+            "currency": { "type": "string", "pattern": "^[A-Z0-9]{3,16}$", "description": "ISO 4217, or a crypto code the host knows." }
+          }
+        },
+        "as_of": {
+          "$ref": "#/$defs/rfc3339_utc",
+          "description": "Not later than now + 5 minutes; not earlier than ten years ago."
+        },
+        "method": {
+          "type": ["string", "null"],
+          "enum": ["reported_balance", "quoted_price", "comparable_sales_median", "index_adjusted", "statement", null]
+        },
+        "source": {
+          "type": "object",
+          "required": ["origin", "reference", "fetched_at"],
+          "additionalProperties": false,
+          "properties": {
+            "origin": { "$ref": "#/$defs/host", "description": "Labelled observed only if the host saw this run fetch it; otherwise the suggestion is shown as 'source not observed'." },
+            "reference": { "type": "string", "maxLength": 200, "description": "Plain text shown verbatim; no links." },
+            "fetched_at": { "$ref": "#/$defs/rfc3339_utc", "description": "Must fall inside the run window." },
+            "price_origin": { "oneOf": [{ "$ref": "#/$defs/host" }, { "type": "null" }] }
+          }
+        }
+      }
+    },
+    "reason": {
+      "type": "string",
+      "enum": [
+        "invalid",
+        "too_many",
+        "too_large",
+        "bad_schema",
+        "host_field_supplied",
+        "unknown_field",
+        "field_not_allowed_for_kind",
+        "missing_field",
+        "bad_kind",
+        "permission_denied",
+        "bad_source_key",
+        "bad_asset_kind",
+        "asset_kind_not_allowed",
+        "bad_display_name",
+        "bad_instrument",
+        "bad_quantity",
+        "bad_value",
+        "bad_currency",
+        "bad_as_of",
+        "as_of_in_future",
+        "as_of_too_old",
+        "bad_method",
+        "bad_source",
+        "bad_reference",
+        "bad_fetched_at",
+        "fetched_at_outside_run"
+      ],
+      "description": "A closed set of reason codes. None ever contains plugin-supplied text."
+    }
+  }
 }
