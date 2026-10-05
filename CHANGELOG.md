@@ -26,12 +26,19 @@ per change. Ships in the next minor version (a new host function is a minor).
   them is refused whole (`bad_request` / `host_field_supplied`). Whole-call
   errors use the existing `error` / `error_code` pair with a fixed `error`
   text per code (`permission_denied`, `bad_request`, `too_many`, `too_large`,
-  `workspace_unavailable`, `host_error`; `rate_limit_exceeded` and
-  `quota_exceeded` are reserved for the persisted limiter and not emitted
-  yet). The Tier-2 generic host-call runner carries the same shape as method
-  `propose` (`{"method":"propose","batch":{…}}` ->
-  `{"ok":true,"data":{"receipts":[…]}}` or `{"ok":false,"error":"<code>"}`);
+  `rate_limit_exceeded`, `quota_exceeded`, `workspace_unavailable`,
+  `host_error`). The Tier-2 generic host-call runner carries the same shape as
+  method `propose` (`{"method":"propose","batch":{…}}` ->
+  `{"ok":true,"data":{"receipts":[…]}}` or `{"ok":false,"error":"<code>"}`)
+  with the same codes, except that it spells the rate limit `rate_limited`;
   a Tier-2 plugin that does not qualify still gets `unknown_method:propose`.
+- Persisted `propose` limits per plugin per workspace: 10 calls a minute and
+  100 a day (`rate_limit_exceeded`; Tier 2 `rate_limited`), and at most 500
+  suggestions awaiting review (`quota_exceeded`). Neither refusal queues
+  anything, a rate-limited call does not count towards the rate limit, and a
+  batch that would pass 500 is refused whole.
+  Suggestions expire after 14 days and then stop counting. The schema text
+  that called both codes "reserved, not emitted yet" is corrected.
   New host function: a minor bump at release time (see Versioning).
 - `http_response.body_encoding` (`"utf8"` | `"base64"`, absent means
   `"utf8"`) in `sidecar/host-calls.schema.json`. The host sends a response

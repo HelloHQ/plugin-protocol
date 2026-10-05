@@ -69,7 +69,13 @@ the Tier-2 generic host-call runner uses the same payload as method `propose`.
   supplies any of it is refused whole.
 - Amounts are canonical decimal **strings** (never JSON numbers), at most 38
   significant digits and scale 18.
-- Limits per call: 200 proposals (50 of kind `holding`) and 256 KiB.
+- Limits per call: 200 proposals (50 of kind `holding`) and 256 KiB
+  (`too_many`, `too_large`).
+- Limits per plugin per workspace: 10 calls a minute and 100 a day
+  (`rate_limit_exceeded`; the Tier-2 host call spells it `rate_limited`), and
+  500 suggestions awaiting review (`quota_exceeded`). Neither refusal queues
+  anything, and a rate-limited call does not count towards the rate limit.
+  Suggestions expire after 14 days and then stop counting.
 - Error text is fixed per `error_code` and never contains plugin-supplied text.
 
 ## Generating bindings

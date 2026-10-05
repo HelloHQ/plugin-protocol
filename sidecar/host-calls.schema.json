@@ -241,7 +241,7 @@
             "workspace_unavailable",
             "host_error"
           ],
-          "description": "rate_limit_exceeded and quota_exceeded are reserved for the persisted limiter (docs/plugin/30 section 3.8) and are not emitted yet. workspace_unavailable: no workspace is open, or not the one the run started in."
+          "description": "rate_limit_exceeded: more than 10 propose calls in a minute, or 100 in a day, by this plugin in this workspace; a call refused for this reason is not counted. quota_exceeded: this batch would leave this plugin with more than 500 suggestions awaiting review in this workspace (a batch that queues nothing new never trips it). Both refuse the whole call and nothing is queued; suggestions expire after 14 days and then stop counting. The Tier-2 host call spells the first code rate_limited. workspace_unavailable: no workspace is open, or not the one the run started in."
         },
         "reason": {
           "$ref": "#/$defs/reason",
