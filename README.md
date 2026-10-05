@@ -53,6 +53,25 @@ Tier-2 host-call `http_request`, and Tier-2 `wasi:http`.
   path, query, headers or a resolved IP address; at most the origin host.
   Branch on the error code, not the message.
 
+## Propose-only writes (`propose:holdings`, `propose:valuations`)
+
+A Verified plugin may *suggest* holdings and values; the person reviews each
+one and the host writes only what they approve, as their own data with the
+plugin recorded as the source. Tier 1 uses the `propose` / `propose_response`
+messages in [`sidecar/host-calls.schema.json`](sidecar/host-calls.schema.json);
+the Tier-2 generic host-call runner uses the same payload as method `propose`.
+
+- The plugin proposes against its own **source key** and never learns an item
+  id, a current value or an approval decision: a receipt is `index`, `outcome`
+  and, for `invalid`, a closed `reason` code.
+- The host stamps provenance (`plugin_id`, `plugin_version`, `content_hash`,
+  `trust_tier`, `run_id`, `received_at`, `host_observed_origins`); a batch that
+  supplies any of it is refused whole.
+- Amounts are canonical decimal **strings** (never JSON numbers), at most 38
+  significant digits and scale 18.
+- Limits per call: 200 proposals (50 of kind `holding`) and 256 KiB.
+- Error text is fixed per `error_code` and never contains plugin-supplied text.
+
 ## Generating bindings
 
 ```bash
